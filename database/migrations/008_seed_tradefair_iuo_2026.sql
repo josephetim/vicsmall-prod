@@ -1,0 +1,2 @@
+-- Seed migration placeholder for Vicsmall Trade Fair IUO 2026
+-- Insert event, stand layout (premium/single/shared), and initial slot records.

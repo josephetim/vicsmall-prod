@@ -1,0 +1,2 @@
+-- Tradefair payments table migration placeholder
+-- Store gateway references, statuses, amounts, metadata, and verification timestamps.

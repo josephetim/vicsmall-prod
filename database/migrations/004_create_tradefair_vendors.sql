@@ -1,0 +1,2 @@
+-- Tradefair vendors table migration placeholder
+-- Add vendor profile and contact fields linked to event registrations.

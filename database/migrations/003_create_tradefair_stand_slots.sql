@@ -1,0 +1,2 @@
+-- Tradefair stand slots table migration placeholder
+-- Add child slot records for shared stands with occupancy status.

@@ -1,0 +1,2 @@
+-- Tradefair audit logs table migration placeholder
+-- Track actor, action, entity, before/after payload, and timestamp fields.

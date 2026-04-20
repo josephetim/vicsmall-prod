@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vicsmall Tradefair App
 
-## Getting Started
+This repository contains:
 
-First, run the development server:
+- Next.js frontend (App Router) for public and admin tradefair UI.
+- Standalone Express + TypeScript backend for tradefair APIs.
+
+Use `pnpm` only.
+
+## Local Commands
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
-# or
-bun dev
+pnpm build
+pnpm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+```bash
+pnpm backend:dev
+pnpm backend:build
+pnpm backend:start
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm seed:tradefair
+pnpm seed:admin
+pnpm test:backend
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API Roots
 
-## Learn More
+- Public + payments: `/api/tradefair`
+- Admin auth: `/api/admin/auth`
+- Admin tradefair: `/api/admin/tradefair`
+- Health check: `/health`
 
-To learn more about Next.js, take a look at the following resources:
+## Production Deployment Topology
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Frontend: Vercel (Next.js)
+- Backend: Render Web Service (Express app from `src/backend/server.ts`)
+- Database: MongoDB Atlas (replica-set capable)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Render Setup (Backend)
 
-## Deploy on Vercel
+- Build command: `pnpm backend:build`
+- Start command: `pnpm backend:start`
+- Health check path: `/health`
+- Port: Render injects `PORT`; backend binds `process.env.PORT`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Required Render env vars:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `NODE_ENV=production`
+- `MONGODB_URI`
+- `MONGODB_DB_NAME`
+- `JWT_SECRET`
+- `FRONTEND_URL` (your Vercel URL)
+- `PAYSTACK_SECRET_KEY`
+- `PAYSTACK_PUBLIC_KEY`
+- `PAYSTACK_WEBHOOK_SECRET`
+- `TRADEFAIR_HOLD_MINUTES`
+- `TRADEFAIR_EVENT_SLUG`
+- `TRADEFAIR_FRONTEND_URL`
+- `TRADEFAIR_CONFIRMATION_URL`
+- `TRADEFAIR_CALLBACK_URL`
+- `WHATSAPP_SUPPORT_NUMBER`
+- `ADMIN_EMAIL`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+
+Create the first admin after deploy:
+
+```bash
+pnpm seed:admin
+```
+
+## Vercel Setup (Frontend)
+
+Required Vercel env vars:
+
+- `NEXT_PUBLIC_API_BASE_URL` (Render backend base URL, e.g. `https://your-backend.onrender.com`)
+- `NEXT_PUBLIC_TRADEFAIR_EVENT_SLUG`
+- `NEXT_PUBLIC_TRADEFAIR_HOLD_MINUTES`
+- `NEXT_PUBLIC_TRADEFAIR_FRONTEND_URL`
+- `NEXT_PUBLIC_TRADEFAIR_CONFIRMATION_URL`
+- `NEXT_PUBLIC_TRADEFAIR_CALLBACK_URL`
+- `NEXT_PUBLIC_WHATSAPP_SUPPORT_NUMBER`
+
+## Admin Auth Flow
+
+- Login endpoint: `POST /api/admin/auth/login`
+- Session check: `GET /api/admin/auth/me`
+- Logout endpoint: `POST /api/admin/auth/logout`
+- Admin JWT is issued by backend and stored in secure HTTP-only cookie (`vicsmall_admin_token`) on frontend domain.
+- Backend middleware protects all `/api/admin/tradefair/*` routes.
+- Frontend middleware protects `/admin/*` routes and redirects unauthenticated users to `/admin/login`.
+
+## MongoDB Transaction Requirement
+
+Tradefair hold/payment flows use MongoDB transactions.  
+Use a replica-set capable MongoDB deployment for local and production.
+
+## Collections You Should See In Atlas / Compass
+
+- `adminusers`
+- `events`
+- `standzones`
+- `stands`
+- `standslots`
+- `vendors`
+- `registrations`
+- `payments`
+- `auditlogs`
+- `categories`
+- `termsversions`
+- `layouts`
+- `layoutversions`

@@ -1,0 +1,2 @@
+-- Tradefair events table migration placeholder
+-- Add columns for slug, date window, venue, hold configuration, and active status.

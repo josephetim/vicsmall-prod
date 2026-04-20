@@ -1,0 +1,2 @@
+-- Tradefair registrations table migration placeholder
+-- Track holds, expiries, payment status, stand selection, and vendor references.

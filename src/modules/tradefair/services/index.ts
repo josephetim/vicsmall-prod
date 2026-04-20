@@ -1,0 +1,9 @@
+export { tradefairAdminService } from "@/modules/tradefair/services/tradefair-admin.service";
+export { tradefairCategoryService } from "@/modules/tradefair/services/tradefair-category.service";
+export { tradefairEventService } from "@/modules/tradefair/services/tradefair-event.service";
+export { tradefairExportService } from "@/modules/tradefair/services/tradefair-export.service";
+export { tradefairLayoutAdminService } from "@/modules/tradefair/services/tradefair-layout-admin.service";
+export { tradefairLayoutService } from "@/modules/tradefair/services/tradefair-layout.service";
+export { tradefairPaymentService } from "@/modules/tradefair/services/tradefair-payment.service";
+export { tradefairRegistrationService } from "@/modules/tradefair/services/tradefair-registration.service";
+export { tradefairTermsService } from "@/modules/tradefair/services/tradefair-terms.service";

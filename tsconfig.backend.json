@@ -1,0 +1,33 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./dist-backend",
+    "rootDir": "./src",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "baseUrl": ".",
+    "types": ["node"],
+    "incremental": false,
+    "isolatedModules": false,
+    "sourceMap": true
+  },
+  "include": [
+    "src/backend/**/*.ts",
+    "src/modules/admin/auth/**/*.ts",
+    "src/modules/tradefair/controllers/**/*.ts",
+    "src/modules/tradefair/services/**/*.ts",
+    "src/modules/tradefair/repositories/**/*.ts",
+    "src/modules/tradefair/models/**/*.ts",
+    "src/modules/tradefair/validators/**/*.ts",
+    "src/modules/tradefair/jobs/**/*.ts",
+    "src/modules/tradefair/webhooks/**/*.ts",
+    "src/modules/tradefair/dto/**/*.ts",
+    "src/modules/tradefair/routes/**/*.ts",
+    "src/modules/tradefair/utils/**/*.ts",
+    "src/modules/tradefair/types/backend.types.ts"
+  ],
+  "exclude": ["node_modules", ".next", "dist-backend", "**/*.test.ts", "**/*.spec.ts"]
+}

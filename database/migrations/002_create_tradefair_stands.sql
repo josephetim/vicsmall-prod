@@ -1,0 +1,2 @@
+-- Tradefair stands table migration placeholder
+-- Add stand metadata (event_id, label, type, row, column, capacity, base_price).

@@ -1,0 +1,10 @@
+export { auditLogRepository } from "@/modules/tradefair/repositories/audit-log.repository";
+export { categoryRepository } from "@/modules/tradefair/repositories/category.repository";
+export { layoutRepository } from "@/modules/tradefair/repositories/layout.repository";
+export { paymentRepository } from "@/modules/tradefair/repositories/payment.repository";
+export { registrationRepository } from "@/modules/tradefair/repositories/registration.repository";
+export { standRepository } from "@/modules/tradefair/repositories/stand.repository";
+export { standSlotRepository } from "@/modules/tradefair/repositories/stand-slot.repository";
+export { termsRepository } from "@/modules/tradefair/repositories/terms.repository";
+export { tradefairEventRepository } from "@/modules/tradefair/repositories/tradefair-event.repository";
+export { vendorRepository } from "@/modules/tradefair/repositories/vendor.repository";
