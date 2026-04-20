@@ -1,4 +1,5 @@
 const LOCAL_BACKEND_DEFAULT = "http://localhost:4000";
+let didWarnMissingApiBaseUrl = false;
 
 function normalizeBaseUrl(value: string | undefined) {
   if (!value) return LOCAL_BACKEND_DEFAULT;
@@ -6,11 +7,15 @@ function normalizeBaseUrl(value: string | undefined) {
 }
 
 export function getApiBaseUrl() {
-  return normalizeBaseUrl(
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-      process.env.BACKEND_API_BASE_URL ??
-      process.env.TRADEFAIR_API_BASE_URL,
-  );
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!configuredBaseUrl && !didWarnMissingApiBaseUrl) {
+    didWarnMissingApiBaseUrl = true;
+    console.warn(
+      "NEXT_PUBLIC_API_BASE_URL is not set. Falling back to http://localhost:4000.",
+    );
+  }
+
+  return normalizeBaseUrl(configuredBaseUrl);
 }
 
 export function buildApiUrl(path: string) {

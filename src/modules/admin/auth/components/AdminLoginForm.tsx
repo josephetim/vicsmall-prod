@@ -7,6 +7,7 @@ import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { apiFetch, persistAdminToken } from "@/lib/api-client";
 import { ADMIN_POST_LOGIN_PATH } from "@/modules/admin/auth/session";
 
 export function AdminLoginForm() {
@@ -25,17 +26,23 @@ export function AdminLoginForm() {
     setError(null);
 
     try {
-      const response = await fetch("/api/admin/auth/login", {
+      const response = await apiFetch<{
+        success: boolean;
+        data?: {
+          token?: string;
+        };
+      }>("/api/admin/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier, password }),
       });
 
-      if (!response.ok) {
+      const token = response?.data?.token;
+      if (!token) {
         setError("Invalid username or password.");
         return;
       }
 
+      persistAdminToken(token);
       router.replace(nextTarget);
       router.refresh();
     } catch {

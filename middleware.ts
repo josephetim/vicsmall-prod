@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { buildApiUrl } from "@/lib/api-base-url";
 import {
   ADMIN_AUTH_COOKIE,
   ADMIN_LOGIN_PATH,
@@ -12,9 +13,9 @@ async function isAuthenticated(request: NextRequest) {
   if (!token) return false;
 
   try {
-    const response = await fetch(new URL("/api/admin/auth/me", request.url), {
+    const response = await fetch(buildApiUrl("/api/admin/auth/me"), {
       headers: {
-        cookie: request.headers.get("cookie") ?? "",
+        Authorization: `Bearer ${token}`,
       },
       cache: "no-store",
     });

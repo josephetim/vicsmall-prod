@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { apiFetch, clearAdminToken } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -33,7 +34,8 @@ export function AdminRouteShell({ children }: AdminRouteShellProps) {
   const normalizedPath = normalizePathname(pathname);
 
   const handleLogout = async () => {
-    await fetch("/api/admin/auth/logout", { method: "POST" });
+    await apiFetch("/api/admin/auth/logout", { method: "POST" }).catch(() => null);
+    clearAdminToken();
     router.replace("/admin/login");
     router.refresh();
   };
