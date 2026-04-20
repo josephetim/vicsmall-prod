@@ -123,7 +123,7 @@ const createLayout = () => {
   return { premium, single, shared };
 };
 
-const STORAGE_KEY = "vicsmall_tradefair_2026_state_v2";
+const STORAGE_KEY = "freeCodeCamp_2026_state_v2";
 const HOLD_MINUTES = 20;
 
 const defaultData = () => ({

@@ -18,7 +18,7 @@ async function seedAdminUser() {
   const adminEmail = requiredEnv("ADMIN_EMAIL").toLowerCase();
   const adminUsername = requiredEnv("ADMIN_USERNAME").toLowerCase();
   const adminPassword = requiredEnv("ADMIN_PASSWORD");
-  const dbName = process.env.MONGODB_DB_NAME || "vicsmall_tradefair";
+  const dbName = process.env.MONGODB_DB_NAME || "freeCodeCamp";
 
   await mongoose.connect(mongoUri, { dbName });
 

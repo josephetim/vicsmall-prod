@@ -20,7 +20,7 @@ type SeededStand = {
 
 const EVENT_SLUG = process.env.TRADEFAIR_EVENT_SLUG || "iuo-2026-tradefair";
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "vicsmall_tradefair";
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "freeCodeCamp";
 
 async function seed() {
   await mongoose.connect(MONGODB_URI, { dbName: MONGODB_DB_NAME });

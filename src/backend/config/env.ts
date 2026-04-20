@@ -8,7 +8,7 @@ const envSchema = z.object({
   BACKEND_PORT: z.coerce.number().default(4000),
   BACKEND_HOST: z.string().default("0.0.0.0"),
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
-  MONGODB_DB_NAME: z.string().default("vicsmall_tradefair"),
+  MONGODB_DB_NAME: z.string().default("freeCodeCamp"),
   FRONTEND_URL: z.string().url().default("http://localhost:3000"),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   ADMIN_JWT_EXPIRES_IN: z.string().default("12h"),
