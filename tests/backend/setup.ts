@@ -25,7 +25,7 @@ beforeAll(async () => {
   env.MONGODB_DB_NAME = "freeCodeCamp_test";
   env.JWT_SECRET = "test-jwt-secret";
   env.FRONTEND_URL = "http://localhost:3000";
-  env.ADMIN_JWT_EXPIRES_IN = "12h";
+  env.ADMIN_JWT_EXPIRES_IN = "2h";
 
   env.PAYSTACK_SECRET_KEY = "sk_test_mock";
   env.PAYSTACK_WEBHOOK_SECRET = "whsec_test_mock";
