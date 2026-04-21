@@ -113,6 +113,17 @@ export const adminTradefairController = {
     return sendSuccess(res, data);
   },
 
+  async getAuditLogs(req: Request, res: Response) {
+    const limit = getQueryString(req, "limit")
+      ? Number(getQueryString(req, "limit"))
+      : undefined;
+    const data = await tradefairAdminService.listAuditLogs(
+      getParam(req, "eventId"),
+      limit,
+    );
+    return sendSuccess(res, data);
+  },
+
   async updateStand(req: Request, res: Response) {
     const data = await tradefairAdminService.updateStand(
       getParam(req, "standId"),

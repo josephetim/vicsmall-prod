@@ -545,14 +545,26 @@ export async function exportStands(format: "csv" | "xlsx"): Promise<ExportRespon
 }
 
 export async function getAuditLogs(): Promise<AdminAuditLogRecord[]> {
-  const registrations = await getRegistrations();
-  return registrations.slice(0, 10).map((registration) => ({
-    id: registration.id,
-    actor: "Admin",
-    action: `REGISTRATION_${registration.registrationStatus.toUpperCase()}`,
-    entity: "registration",
-    entityId: registration.id,
-    createdAt: registration.updatedAt,
+  const eventId = await getEventId();
+  const { data } = await adminRequest<
+    Array<{
+      id: string;
+      actorType: "admin" | "system" | "vendor";
+      actorId: string | null;
+      action: string;
+      entityType: string;
+      entityId: string;
+      createdAt: string;
+    }>
+  >(`/api/admin/tradefair/events/${eventId}/audit-logs?limit=100`);
+
+  return data.map((row) => ({
+    id: row.id,
+    actor: row.actorId ? `${row.actorType}:${row.actorId}` : row.actorType,
+    action: row.action,
+    entity: row.entityType,
+    entityId: row.entityId,
+    createdAt: formatDate(row.createdAt),
   }));
 }
 

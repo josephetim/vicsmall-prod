@@ -25,6 +25,10 @@ adminTradefairRouter.get(
   adminTradefairController.getPayments,
 );
 adminTradefairRouter.get("/events/:eventId/stands", adminTradefairController.getStands);
+adminTradefairRouter.get(
+  "/events/:eventId/audit-logs",
+  adminTradefairController.getAuditLogs,
+);
 adminTradefairRouter.patch("/stands/:standId", adminTradefairController.updateStand);
 adminTradefairRouter.patch(
   "/stand-slots/:slotId",

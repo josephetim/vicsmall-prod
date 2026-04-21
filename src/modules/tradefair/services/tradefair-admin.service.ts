@@ -1151,6 +1151,29 @@ export const tradefairAdminService = {
     };
   },
 
+  async listAuditLogs(eventId: string, limit = 100) {
+    const eventObjectId = ensureObjectId(eventId, "eventId");
+    const event = await tradefairEventRepository.findById(eventObjectId);
+    if (!event) throw notFound("Event not found.");
+
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(Math.floor(limit), 1), 500)
+      : 100;
+
+    const logs = await auditLogRepository.listByEvent(String(eventObjectId), safeLimit);
+
+    return logs.map((log) => ({
+      id: String(log._id),
+      actorType: log.actorType,
+      actorId: log.actorId ?? null,
+      action: log.action,
+      entityType: log.entityType,
+      entityId: String(log.entityId),
+      metadata: log.metadata ?? null,
+      createdAt: log.createdAt,
+    }));
+  },
+
   async updateStand(standId: string, payload: unknown, actorId: string) {
     const parsed = parseStandUpdatePayload(payload);
     const standObjectId = ensureObjectId(standId, "standId");
