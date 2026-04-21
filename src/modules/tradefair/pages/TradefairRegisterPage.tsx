@@ -15,17 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useTradefairEvent } from "@/modules/tradefair/hooks/useTradefairEvent";
 import { MapPin, Users, Tent, ShieldCheck, ArrowRight, Ticket, Phone, Store, Camera, Music2, Star, Lock, CheckCircle2 } from "lucide-react";
 
 const BRAND = {
   name: "Vicsmall",
-  eventName: "Vicsmall Trade Fair IUO 2026",
-  venue: "IUO Football School Field",
-  date: "June 2026",
   primary: "#f59e0b",
   dark: "#111111",
   secondary: "#1d4ed8",
-  whatsapp: "2349049363602",
 };
 
 const BUSINESS_CATEGORIES = [
@@ -280,7 +277,7 @@ function SlotButton({ unit, status, onClick, sharedMode = false, slot, slotStatu
   );
 }
 
-function MiniField({ data, onSelect, getUnitStatus, getSlotStatus }) {
+function MiniField({ data, onSelect, getUnitStatus, getSlotStatus, eventDisplay }) {
   const singleColumns = ["single-1", "single-2", "single-3"];
   const sharedColumns = ["shared-1", "shared-2", "shared-3"];
 
@@ -299,15 +296,15 @@ function MiniField({ data, onSelect, getUnitStatus, getSlotStatus }) {
 
             <div className="mb-4 grid grid-cols-12 gap-3">
               <div className="col-span-3 rounded-3xl border-2 border-white/70 bg-white/90 p-3 shadow-lg">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Store className="h-4 w-4 text-amber-600" /> Vicsmall Stand</div>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Store className="h-4 w-4 text-amber-600" /> {eventDisplay.vicsmallStandLabel}</div>
                 <p className="mt-1 text-xs text-slate-600">Information, support and check-in desk.</p>
               </div>
               <div className="col-span-3 rounded-3xl border-2 border-white/70 bg-white/90 p-3 shadow-lg">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Camera className="h-4 w-4 text-amber-600" /> Photo Booth</div>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Camera className="h-4 w-4 text-amber-600" /> {eventDisplay.photoBoothLabel}</div>
                 <p className="mt-1 text-xs text-slate-600">Content and picture spot for attendees.</p>
               </div>
               <div className="col-span-6 rounded-3xl border-2 border-white/70 bg-slate-900 p-4 text-white shadow-lg">
-                <div className="flex items-center gap-2 text-sm font-bold text-amber-300"><Music2 className="h-4 w-4" /> DJ / Music Stage</div>
+                <div className="flex items-center gap-2 text-sm font-bold text-amber-300"><Music2 className="h-4 w-4" /> {eventDisplay.stageLabel}</div>
                 <p className="mt-1 text-xs text-slate-300">Performance, announcement and crowd engagement zone.</p>
               </div>
             </div>
@@ -369,7 +366,7 @@ function MiniField({ data, onSelect, getUnitStatus, getSlotStatus }) {
             </div>
 
             <div className="mt-4 rounded-2xl bg-white/85 px-4 py-3 text-center text-sm font-semibold text-slate-700 shadow-lg">
-              {BRAND.eventName} • {BRAND.venue} • {BRAND.date}
+              {eventDisplay.eventName} • {eventDisplay.venue} • {eventDisplay.date}
             </div>
           </div>
         </div>
@@ -379,6 +376,7 @@ function MiniField({ data, onSelect, getUnitStatus, getSlotStatus }) {
 }
 
 export default function TradefairRegisterPage() {
+  const { event: eventSummary } = useTradefairEvent();
   const [data, setData] = useState(defaultData());
   const [selected, setSelected] = useState(null);
   const [open, setOpen] = useState(false);
@@ -394,6 +392,26 @@ export default function TradefairRegisterPage() {
     preferences: "",
     agree: false,
   });
+
+  const eventName = eventSummary?.name || "Trade Fair";
+  const eventVenue = eventSummary?.venue || "Venue to be announced";
+  const eventDateLabel = eventSummary?.dateLabel || "Date to be announced";
+  const supportWhatsapp = eventSummary?.supportContact?.whatsapp || "";
+  const supportLink = supportWhatsapp ? `https://wa.me/${supportWhatsapp}` : "#";
+  const headerBannerText = eventSummary?.bannerText || `Register for ${eventName}`;
+  const eventDescription =
+    eventSummary?.shortDescription ||
+    "Event information will appear here after admin configuration.";
+  const eventStatusText = eventSummary?.registrationStatusText || "";
+  const eventHelperText = eventSummary?.publicHelperText || "";
+  const eventDisplay = {
+    eventName,
+    venue: eventVenue,
+    date: eventDateLabel,
+    vicsmallStandLabel: eventSummary?.displayLabels?.vicsmallStandLabel || "Vicsmall Stand",
+    photoBoothLabel: eventSummary?.displayLabels?.photoBoothLabel || "Photo Booth",
+    stageLabel: eventSummary?.displayLabels?.stageLabel || "DJ / Music Stage",
+  };
 
   useEffect(() => {
     const fresh = cleanseExpiredHolds(readData());
@@ -574,13 +592,13 @@ export default function TradefairRegisterPage() {
                 <span className="text-lg font-black">V</span>
               </div>
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-600">Register for Vicsmall Trade Fair IUO 2026</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-600">{headerBannerText}</p>
                 <h1 className="text-xl font-black md:text-2xl">Choose your exact stand position and register online</h1>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="rounded-full bg-slate-900 px-3 py-1 text-white hover:bg-slate-900">{BRAND.date}</Badge>
-              <Badge variant="outline" className="rounded-full px-3 py-1">{BRAND.venue}</Badge>
+              <Badge className="rounded-full bg-slate-900 px-3 py-1 text-white hover:bg-slate-900">{eventDateLabel}</Badge>
+              <Badge variant="outline" className="rounded-full px-3 py-1">{eventVenue}</Badge>
             </div>
           </div>
         </div>
@@ -596,14 +614,26 @@ export default function TradefairRegisterPage() {
               Pick your stand, review the field layout, and complete payment in one smooth flow.
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
-              Vicsmall is a global e-commerce platform connecting buyers and sellers directly through online and offline trade opportunities, including recurring trade fairs and student entrepreneurship initiatives. îˆ€fileciteîˆ‚turn0file0îˆ
+              {eventDescription}
             </p>
+            {eventStatusText ? (
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">{eventStatusText}</p>
+            ) : null}
             <div className="mt-6 flex flex-wrap gap-3">
               <Button className="rounded-2xl bg-amber-500 px-6 py-6 text-black hover:bg-amber-400" onClick={() => document.getElementById("layout")?.scrollIntoView({ behavior: "smooth" })}>
                 View stand layout <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button variant="outline" className="rounded-2xl px-6 py-6" asChild>
-                <a href={`https://wa.me/${BRAND.whatsapp}`} target="_blank" rel="noreferrer">
+                <a
+                  href={supportLink}
+                  target={supportWhatsapp ? "_blank" : undefined}
+                  rel={supportWhatsapp ? "noreferrer" : undefined}
+                  onClick={(event) => {
+                    if (!supportWhatsapp) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
                   Contact on WhatsApp
                 </a>
               </Button>
@@ -665,7 +695,7 @@ export default function TradefairRegisterPage() {
         <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h3 className="text-3xl font-black">Trade fair field layout</h3>
-            <p className="mt-1 text-slate-600">Fenced square field, top-centre gate, top-left Vicsmall stand and photo booth, front premium stands, then the six main stand columns.</p>
+            <p className="mt-1 text-slate-600">Fenced square field, top-centre gate, top-left {eventDisplay.vicsmallStandLabel.toLowerCase()} and {eventDisplay.photoBoothLabel.toLowerCase()}, front premium stands, then the six main stand columns.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Legend />
@@ -688,11 +718,15 @@ export default function TradefairRegisterPage() {
           onSelect={selectUnit}
           getUnitStatus={getUnitStatus}
           getSlotStatus={getSlotStatus}
+          eventDisplay={eventDisplay}
         />
 
         <p className="mt-4 text-sm text-slate-500">
           Mobile behaviour: the full field keeps the desktop-style arrangement and scrolls horizontally instead of collapsing into one column.
         </p>
+        {eventHelperText ? (
+          <p className="mt-2 text-sm text-slate-500">{eventHelperText}</p>
+        ) : null}
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-6 md:px-6">
@@ -761,7 +795,16 @@ export default function TradefairRegisterPage() {
             <div className="flex flex-wrap gap-3">
               <Button className="rounded-2xl bg-amber-500 px-5 text-black hover:bg-amber-400" onClick={() => document.getElementById("layout")?.scrollIntoView({ behavior: "smooth" })}>Choose a stand</Button>
               <Button variant="outline" className="rounded-2xl border-white/20 bg-transparent text-white hover:bg-white hover:text-slate-900" asChild>
-                <a href={`https://wa.me/${BRAND.whatsapp}`} target="_blank" rel="noreferrer"><Phone className="mr-2 h-4 w-4" /> Support</a>
+                <a
+                  href={supportLink}
+                  target={supportWhatsapp ? "_blank" : undefined}
+                  rel={supportWhatsapp ? "noreferrer" : undefined}
+                  onClick={(event) => {
+                    if (!supportWhatsapp) {
+                      event.preventDefault();
+                    }
+                  }}
+                ><Phone className="mr-2 h-4 w-4" /> Support</a>
               </Button>
             </div>
           </CardContent>
@@ -813,14 +856,14 @@ export default function TradefairRegisterPage() {
                   <p><span className="font-semibold text-slate-900">Type:</span> {selected?.unit?.type}</p>
                   {selected?.slot && <p><span className="font-semibold text-slate-900">Shared slot:</span> {selected.slot.label}</p>}
                   <p><span className="font-semibold text-slate-900">Amount:</span> {selected ? formatNaira(selected.amount) : ""}</p>
-                  <p><span className="font-semibold text-slate-900">Venue:</span> {BRAND.venue}</p>
-                  <p><span className="font-semibold text-slate-900">Date:</span> {BRAND.date}</p>
+                  <p><span className="font-semibold text-slate-900">Venue:</span> {eventVenue}</p>
+                  <p><span className="font-semibold text-slate-900">Date:</span> {eventDateLabel}</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 rounded-2xl border border-slate-200 p-4">
                 <Checkbox checked={form.agree} onCheckedChange={(checked) => setForm({ ...form, agree: Boolean(checked) })} />
-                <p className="text-sm leading-6 text-slate-600">I agree to the Vicsmall Trade Fair 2026 terms and conditions.</p>
+                <p className="text-sm leading-6 text-slate-600">I agree to the {eventName} terms and conditions.</p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

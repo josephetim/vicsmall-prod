@@ -11,6 +11,16 @@ export interface EventDocument {
   status: (typeof eventStatusValues)[number];
   registrationOpenAt?: Date;
   registrationCloseAt?: Date;
+  shortDescription?: string;
+  bannerText?: string;
+  registrationStatusText?: string;
+  publicHelperText?: string;
+  displayLabels?: {
+    photoBoothLabel?: string;
+    vicsmallStandLabel?: string;
+    stageLabel?: string;
+  };
+  updatedBy?: string;
   currency: string;
   prices: {
     premiumKobo: number;
@@ -49,6 +59,16 @@ const EventSchema = new Schema<EventDocument>(
     },
     registrationOpenAt: { type: Date },
     registrationCloseAt: { type: Date },
+    shortDescription: { type: String },
+    bannerText: { type: String },
+    registrationStatusText: { type: String },
+    publicHelperText: { type: String },
+    displayLabels: {
+      photoBoothLabel: { type: String },
+      vicsmallStandLabel: { type: String },
+      stageLabel: { type: String },
+    },
+    updatedBy: { type: String },
     currency: { type: String, default: "NGN", required: true },
     prices: {
       premiumKobo: { type: Number, required: true },

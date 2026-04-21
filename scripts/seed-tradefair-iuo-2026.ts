@@ -47,6 +47,17 @@ async function seed() {
     status: "live",
     registrationOpenAt: new Date("2026-05-01T00:00:00.000Z"),
     registrationCloseAt: new Date("2026-09-20T23:59:59.000Z"),
+    shortDescription:
+      "Vicsmall connects student and independent brands with buyers through high-traffic trade fair showcases.",
+    bannerText: "Register for Vicsmall Trade Fair IUO 2026",
+    registrationStatusText: "Registration is currently open for qualified vendors.",
+    publicHelperText:
+      "Pick your exact stand or shared slot, complete registration, and pay to confirm your position.",
+    displayLabels: {
+      photoBoothLabel: "Photo Booth",
+      vicsmallStandLabel: "Vicsmall Stand",
+      stageLabel: "DJ / Music Stage",
+    },
     currency: "NGN",
     prices: {
       premiumKobo: PRICES.premiumKobo,

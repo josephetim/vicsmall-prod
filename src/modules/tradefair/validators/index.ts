@@ -4,3 +4,4 @@ export * from "@/modules/tradefair/validators/admin-update-registration.validato
 export * from "@/modules/tradefair/validators/category-update.validator";
 export * from "@/modules/tradefair/validators/terms.validator";
 export * from "@/modules/tradefair/validators/layout.validator";
+export * from "@/modules/tradefair/validators/event-settings.validator";

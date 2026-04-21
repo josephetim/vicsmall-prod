@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/admin/tradefair/registrations", label: "Registrations" },
   { href: "/admin/tradefair/payments", label: "Payments" },
   { href: "/admin/tradefair/stands", label: "Stands" },
+  { href: "/admin/tradefair/settings", label: "Event Setup" },
   { href: "/admin/tradefair/exports", label: "Exports" },
   { href: "/admin/tradefair/audit-log", label: "Audit Log" },
   { href: "/admin/help", label: "Support" },

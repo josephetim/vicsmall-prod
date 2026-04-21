@@ -19,6 +19,7 @@ import { StandSlotModel } from "@/modules/tradefair/models/StandSlot";
 import { VendorModel } from "@/modules/tradefair/models/Vendor";
 import { adminUpdateRegistrationSchema } from "@/modules/tradefair/validators/admin-update-registration.validator";
 import { categoryUpdateSchema } from "@/modules/tradefair/validators/category-update.validator";
+import { eventSettingsUpdateSchema } from "@/modules/tradefair/validators/event-settings.validator";
 import { normalizeCategoryCodes } from "@/modules/tradefair/utils/category-counting";
 import { resolveSlotPriceKobo } from "@/modules/tradefair/utils/slot-pricing";
 import type {
@@ -54,6 +55,12 @@ function objectIdMap<T extends { _id: Types.ObjectId }>(items: T[]) {
     acc[String(item._id)] = item;
     return acc;
   }, {});
+}
+
+function normalizedOptionalString(value: string | undefined) {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function computeStandOccupancyStatus(params: {
@@ -261,6 +268,94 @@ export const tradefairAdminService = {
         isOpen: category.isOpen,
       })),
     };
+  },
+
+  async getEventSettings(eventId: string) {
+    const eventObjectId = ensureObjectId(eventId, "eventId");
+    const event = await tradefairEventRepository.findById(eventObjectId);
+    if (!event) throw notFound("Event not found.");
+
+    return {
+      id: String(event._id),
+      slug: event.slug,
+      name: event.name,
+      venue: event.venue,
+      status: event.status,
+      eventDate: event.eventDate.toISOString(),
+      registrationOpenAt: event.registrationOpenAt?.toISOString() ?? null,
+      registrationCloseAt: event.registrationCloseAt?.toISOString() ?? null,
+      supportContact: {
+        whatsapp: event.supportContact.whatsapp,
+        phone: event.supportContact.phone ?? null,
+        email: event.supportContact.email ?? null,
+      },
+      bannerText: event.bannerText ?? null,
+      shortDescription: event.shortDescription ?? null,
+      registrationStatusText: event.registrationStatusText ?? null,
+      publicHelperText: event.publicHelperText ?? null,
+      displayLabels: {
+        photoBoothLabel: event.displayLabels?.photoBoothLabel ?? null,
+        vicsmallStandLabel: event.displayLabels?.vicsmallStandLabel ?? null,
+        stageLabel: event.displayLabels?.stageLabel ?? null,
+      },
+      holdMinutes: Number(process.env.TRADEFAIR_HOLD_MINUTES ?? 20),
+      updatedAt: event.updatedAt.toISOString(),
+    };
+  },
+
+  async updateEventSettings(eventId: string, payload: unknown, actorId: string) {
+    const eventObjectId = ensureObjectId(eventId, "eventId");
+    const existing = await tradefairEventRepository.findById(eventObjectId);
+    if (!existing) throw notFound("Event not found.");
+
+    const parsed = eventSettingsUpdateSchema.parse(payload);
+    const conflictingEvent = await tradefairEventRepository.findBySlug(parsed.slug);
+    if (conflictingEvent && String(conflictingEvent._id) !== String(eventObjectId)) {
+      throw conflict("Another event already uses this slug.");
+    }
+
+    const updated = await tradefairEventRepository.updateById(eventObjectId, {
+      name: parsed.name,
+      slug: parsed.slug,
+      venue: parsed.venue,
+      eventDate: parsed.eventDate,
+      status: parsed.status,
+      registrationOpenAt: parsed.registrationOpenAt,
+      registrationCloseAt: parsed.registrationCloseAt,
+      supportContact: {
+        whatsapp: parsed.supportContact.whatsapp,
+        phone: normalizedOptionalString(parsed.supportContact.phone),
+        email: normalizedOptionalString(parsed.supportContact.email),
+      },
+      bannerText: normalizedOptionalString(parsed.bannerText),
+      shortDescription: normalizedOptionalString(parsed.shortDescription),
+      registrationStatusText: normalizedOptionalString(parsed.registrationStatusText),
+      publicHelperText: normalizedOptionalString(parsed.publicHelperText),
+      displayLabels: {
+        photoBoothLabel: normalizedOptionalString(parsed.displayLabels?.photoBoothLabel),
+        vicsmallStandLabel: normalizedOptionalString(
+          parsed.displayLabels?.vicsmallStandLabel,
+        ),
+        stageLabel: normalizedOptionalString(parsed.displayLabels?.stageLabel),
+      },
+      updatedBy: actorId,
+    });
+    if (!updated) throw notFound("Event not found.");
+
+    await auditLogRepository.create({
+      eventId: String(updated._id),
+      actorType: "admin",
+      actorId,
+      action: "event_settings_updated",
+      entityType: "event",
+      entityId: updated._id,
+      metadata: {
+        slug: updated.slug,
+        status: updated.status,
+      },
+    });
+
+    return this.getEventSettings(String(updated._id));
   },
 
   async listRegistrations(eventId: string, query: RegistrationFilterQuery) {

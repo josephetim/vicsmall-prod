@@ -19,6 +19,17 @@ export const tradefairEventRepository = {
     return doc.toObject();
   },
 
+  async updateById(
+    eventId: string | Types.ObjectId,
+    payload: Partial<EventDocument>,
+    session?: ClientSession,
+  ) {
+    return EventModel.findByIdAndUpdate(eventId, payload, {
+      session,
+      returnDocument: "after",
+    }).lean<EventDocument | null>();
+  },
+
   async duplicate(
     sourceEventId: string,
     slug: string,

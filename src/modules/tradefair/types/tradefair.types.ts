@@ -9,6 +9,21 @@ export interface EventSummary {
   venue: string;
   dateLabel: string;
   holdMinutes: number;
+  status: "draft" | "live" | "closed" | "archived";
+  supportContact: {
+    whatsapp: string;
+    phone?: string;
+    email?: string;
+  };
+  shortDescription?: string;
+  bannerText?: string;
+  registrationStatusText?: string;
+  publicHelperText?: string;
+  displayLabels?: {
+    photoBoothLabel?: string;
+    vicsmallStandLabel?: string;
+    stageLabel?: string;
+  };
 }
 
 export interface SharedStandSlot {

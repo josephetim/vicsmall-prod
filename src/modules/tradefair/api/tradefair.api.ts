@@ -47,6 +47,21 @@ export async function getTradefairEvent(): Promise<EventSummary> {
     name: string;
     venue: string;
     eventDate: string;
+    status: "draft" | "live" | "closed" | "archived";
+    supportContact: {
+      whatsapp: string;
+      phone?: string;
+      email?: string;
+    };
+    shortDescription?: string | null;
+    bannerText?: string | null;
+    registrationStatusText?: string | null;
+    publicHelperText?: string | null;
+    displayLabels?: {
+      photoBoothLabel?: string | null;
+      vicsmallStandLabel?: string | null;
+      stageLabel?: string | null;
+    };
   }>(`/api/tradefair/events/${EVENT_SLUG}`);
 
   const eventDate = new Date(data.eventDate);
@@ -63,6 +78,19 @@ export async function getTradefairEvent(): Promise<EventSummary> {
           day: "numeric",
         }),
     holdMinutes: Number(process.env.NEXT_PUBLIC_TRADEFAIR_HOLD_MINUTES ?? 20),
+    status: data.status,
+    supportContact: data.supportContact ?? { whatsapp: "" },
+    shortDescription: data.shortDescription ?? undefined,
+    bannerText: data.bannerText ?? undefined,
+    registrationStatusText: data.registrationStatusText ?? undefined,
+    publicHelperText: data.publicHelperText ?? undefined,
+    displayLabels: data.displayLabels
+      ? {
+          photoBoothLabel: data.displayLabels.photoBoothLabel ?? undefined,
+          vicsmallStandLabel: data.displayLabels.vicsmallStandLabel ?? undefined,
+          stageLabel: data.displayLabels.stageLabel ?? undefined,
+        }
+      : undefined,
   };
 }
 

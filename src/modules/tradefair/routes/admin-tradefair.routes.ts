@@ -9,6 +9,14 @@ adminTradefairRouter.get(
   adminTradefairController.getDashboard,
 );
 adminTradefairRouter.get(
+  "/events/:eventId/settings",
+  adminTradefairController.getEventSettings,
+);
+adminTradefairRouter.patch(
+  "/events/:eventId/settings",
+  adminTradefairController.updateEventSettings,
+);
+adminTradefairRouter.get(
   "/events/:eventId/registrations",
   adminTradefairController.getRegistrations,
 );

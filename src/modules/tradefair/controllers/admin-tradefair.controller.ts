@@ -30,6 +30,20 @@ export const adminTradefairController = {
     return sendSuccess(res, data);
   },
 
+  async getEventSettings(req: Request, res: Response) {
+    const data = await tradefairAdminService.getEventSettings(getParam(req, "eventId"));
+    return sendSuccess(res, data);
+  },
+
+  async updateEventSettings(req: Request, res: Response) {
+    const data = await tradefairAdminService.updateEventSettings(
+      getParam(req, "eventId"),
+      req.body,
+      extractActorId(req),
+    );
+    return sendSuccess(res, data);
+  },
+
   async getRegistrations(req: Request, res: Response) {
     const data = await tradefairAdminService.listRegistrations(getParam(req, "eventId"), {
       page: getQueryString(req, "page") ? Number(getQueryString(req, "page")) : undefined,

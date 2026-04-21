@@ -1,6 +1,7 @@
 "use client";
 
 import { type ComponentType, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -643,7 +644,7 @@ export default function TradefairDashboardPage() {
               empty until real activity is created from public registrations and admin
               actions.
             </p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <Button
                 variant="outline"
                 className="justify-start rounded-2xl"
@@ -657,6 +658,9 @@ export default function TradefairDashboardPage() {
                 onClick={() => setAdminTab("payments")}
               >
                 <RefreshCcw className="mr-2 h-4 w-4" /> Reconcile payments
+              </Button>
+              <Button variant="outline" className="justify-start rounded-2xl" asChild>
+                <Link href="/admin/tradefair/settings">Event setup</Link>
               </Button>
             </div>
           </div>

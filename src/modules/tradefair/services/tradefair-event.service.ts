@@ -44,6 +44,15 @@ export const tradefairEventService = {
       venue: event.venue,
       eventDate: event.eventDate.toISOString(),
       status: event.status,
+      shortDescription: event.shortDescription ?? null,
+      bannerText: event.bannerText ?? null,
+      registrationStatusText: event.registrationStatusText ?? null,
+      publicHelperText: event.publicHelperText ?? null,
+      displayLabels: {
+        photoBoothLabel: event.displayLabels?.photoBoothLabel ?? null,
+        vicsmallStandLabel: event.displayLabels?.vicsmallStandLabel ?? null,
+        stageLabel: event.displayLabels?.stageLabel ?? null,
+      },
       prices: {
         premium: event.prices.premiumKobo,
         single: event.prices.singleKobo,
