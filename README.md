@@ -114,3 +114,43 @@ Use a replica-set capable MongoDB deployment for local and production.
 - `termsversions`
 - `layouts`
 - `layoutversions`
+
+## Kill Switch / Maintenance Mode
+
+This repo uses an env-variable-based global kill switch in `middleware.ts` (fallback approach because Edge Config is not configured in this codebase).
+
+When enabled:
+
+- public requests are rewritten to `/maintenance`
+- the maintenance response returns HTTP `503`
+- API/non-GET requests get JSON `503`
+- exempt routes stay available (configurable)
+
+Environment variables:
+
+- `MAINTENANCE_MODE`:
+  - `false` (default) = app works normally
+  - `true` = maintenance mode ON
+- `MAINTENANCE_EXEMPT_PATHS`:
+  - comma-separated path prefixes that should remain accessible
+  - default: `/maintenance,/admin,/api/admin,/health,/api/health`
+- `MAINTENANCE_RETRY_AFTER_SECONDS`:
+  - sets `Retry-After` header on `503` responses
+  - default: `300`
+
+Vercel toggle steps:
+
+1. Open your Vercel project settings.
+2. Add/update `MAINTENANCE_MODE=true` for the target environment.
+3. Keep or adjust `MAINTENANCE_EXEMPT_PATHS` as needed.
+4. Turn off with `MAINTENANCE_MODE=false`.
+
+Note: with env-based toggles, behavior may depend on deployment/runtime restart behavior. If you need instant toggles without redeploy semantics, move this flag to Vercel Edge Config.
+
+Local test:
+
+1. Set `MAINTENANCE_MODE=true` in `.env.local`.
+2. Run `pnpm dev`.
+3. Visit `/` and confirm maintenance content + status `503`:
+   - `curl -i http://localhost:3000/`
+4. Confirm exempt routes still work, for example `/admin` (if exempt).

@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 
 import { buildApiUrl } from "@/lib/api-base-url";
 import {
+  getMaintenanceRetryAfterSeconds,
+  isInternalOrStaticPath,
+  isMaintenanceExemptPath,
+  isMaintenanceModeEnabled,
+} from "@/lib/maintenance-mode";
+import {
   ADMIN_AUTH_COOKIE,
   ADMIN_LOGIN_PATH,
   ADMIN_POST_LOGIN_PATH,
@@ -27,6 +33,39 @@ async function isAuthenticated(request: NextRequest) {
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  if (isInternalOrStaticPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (isMaintenanceModeEnabled() && !isMaintenanceExemptPath(pathname)) {
+    const retryAfter = String(getMaintenanceRetryAfterSeconds());
+
+    if (pathname.startsWith("/api") || request.method !== "GET") {
+      const response = NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "MAINTENANCE_MODE",
+            message: "We're temporarily unavailable. Please try again later.",
+          },
+        },
+        { status: 503 },
+      );
+      response.headers.set("cache-control", "no-store");
+      response.headers.set("retry-after", retryAfter);
+      return response;
+    }
+
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = "/maintenance";
+    rewriteUrl.search = "";
+
+    const response = NextResponse.rewrite(rewriteUrl);
+    response.headers.set("cache-control", "no-store");
+    response.headers.set("retry-after", retryAfter);
+    return response;
+  }
 
   if (!pathname.startsWith("/admin")) {
     return NextResponse.next();
@@ -58,5 +97,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
