@@ -95,17 +95,58 @@ export interface CreateHoldPayload {
 
 export interface CreateHoldResponse {
   reservationId: string;
+  bookingReference: string;
+  amountKobo: number;
   holdUntil: string;
   status: RegistrationStatus;
 }
 
 export interface PaymentInitializationResponse {
   authorizationUrl: string;
+  accessCode?: string;
   reference: string;
 }
 
 export interface PaymentVerificationResponse {
-  reservationId: string;
+  bookingReference?: string;
   reference: string;
   status: "success" | "failed" | "pending";
+  alreadyVerified?: boolean;
+}
+
+export interface TradefairConfirmation {
+  bookingReference: string;
+  paymentStatus:
+    | "initialized"
+    | "pending"
+    | "success"
+    | "failed"
+    | "abandoned"
+    | "refunded";
+  gatewayReference: string | null;
+  paidAt: string | null;
+  amountPaidKobo: number;
+  vendor: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+    brandName: string;
+    categories: string[];
+  };
+  stand: {
+    standCode: string;
+    label: string;
+    standType: StandType;
+  };
+  slot: {
+    slotCode: string;
+    slotLabel: string;
+    slotIndex: number;
+  } | null;
+  supportContact: {
+    whatsapp: string;
+    phone?: string;
+    email?: string;
+  };
 }

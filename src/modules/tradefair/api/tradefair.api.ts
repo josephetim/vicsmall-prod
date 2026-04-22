@@ -5,6 +5,7 @@ import type {
   EventSummary,
   PaymentInitializationResponse,
   PaymentVerificationResponse,
+  TradefairConfirmation,
   TradefairLayout,
 } from "@/modules/tradefair/types/tradefair.types";
 
@@ -184,6 +185,8 @@ export async function createHold(
 ): Promise<CreateHoldResponse> {
   const data = await requestBackend<{
     registrationId: string;
+    bookingReference: string;
+    amountKobo: number;
     holdExpiresAt: string;
   }>(`/api/tradefair/events/${EVENT_SLUG}/registrations/hold`, {
     method: "POST",
@@ -191,7 +194,7 @@ export async function createHold(
       firstName: payload.vendor.firstName,
       lastName: payload.vendor.lastName,
       phone: payload.vendor.phone,
-      email: payload.vendor.email,
+      email: payload.vendor.email?.trim() ? payload.vendor.email.trim() : undefined,
       brandName: payload.vendor.brandName,
       businessCategory: payload.vendor.categories,
       standPreferences: payload.vendor.preferences,
@@ -203,6 +206,8 @@ export async function createHold(
 
   return {
     reservationId: data.registrationId,
+    bookingReference: data.bookingReference,
+    amountKobo: data.amountKobo,
     holdUntil: data.holdExpiresAt,
     status: "held",
   };
@@ -213,6 +218,7 @@ export async function initializePayment(
 ): Promise<PaymentInitializationResponse> {
   const data = await requestBackend<{
     authorization_url: string;
+    access_code?: string;
     reference: string;
   }>(`/api/tradefair/registrations/${reservationId}/payments/initialize`, {
     method: "POST",
@@ -220,6 +226,7 @@ export async function initializePayment(
 
   return {
     authorizationUrl: data.authorization_url,
+    accessCode: data.access_code,
     reference: data.reference,
   };
 }
@@ -228,8 +235,10 @@ export async function verifyPayment(
   reference: string,
 ): Promise<PaymentVerificationResponse> {
   const data = await requestBackend<{
+    ok?: boolean;
     status: "success" | "failed" | "pending" | "abandoned";
     bookingReference?: string;
+    alreadyVerified?: boolean;
   }>("/api/tradefair/payments/verify", {
     method: "POST",
     body: JSON.stringify({ reference }),
@@ -239,18 +248,19 @@ export async function verifyPayment(
     data.status === "abandoned" ? "failed" : data.status;
 
   return {
-    reservationId: data.bookingReference ?? reference,
+    bookingReference: data.bookingReference,
     reference,
     status: normalizedStatus,
+    alreadyVerified: data.alreadyVerified ?? false,
   };
 }
 
-export async function getConfirmation(bookingReference: string): Promise<{
-  reference: string;
-  status: "success" | "failed" | "pending";
-}> {
+export async function getConfirmation(
+  bookingReference: string,
+): Promise<TradefairConfirmation> {
   const data = await requestBackend<{
     bookingReference: string;
+    amountPaidKobo: number;
     paymentStatus:
       | "initialized"
       | "pending"
@@ -258,17 +268,42 @@ export async function getConfirmation(bookingReference: string): Promise<{
       | "failed"
       | "abandoned"
       | "refunded";
+    gatewayReference: string | null;
+    paidAt: string | null;
+    vendor: {
+      firstName: string;
+      lastName: string;
+      phone: string;
+      email?: string;
+      brandName: string;
+      categories: string[];
+    };
+    stand: {
+      standCode: string;
+      label: string;
+      standType: "premium" | "single" | "shared";
+    };
+    slot: {
+      slotCode: string;
+      slotLabel: string;
+      slotIndex: number;
+    } | null;
+    supportContact: {
+      whatsapp: string;
+      phone?: string;
+      email?: string;
+    };
   }>(`/api/tradefair/registrations/${bookingReference}/confirmation`);
 
-  const status =
-    data.paymentStatus === "success"
-      ? "success"
-      : data.paymentStatus === "failed" || data.paymentStatus === "abandoned"
-        ? "failed"
-        : "pending";
-
   return {
-    reference: data.bookingReference,
-    status,
+    bookingReference: data.bookingReference,
+    paymentStatus: data.paymentStatus,
+    gatewayReference: data.gatewayReference,
+    paidAt: data.paidAt,
+    amountPaidKobo: data.amountPaidKobo,
+    vendor: data.vendor,
+    stand: data.stand,
+    slot: data.slot,
+    supportContact: data.supportContact,
   };
 }

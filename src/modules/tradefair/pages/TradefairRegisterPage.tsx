@@ -15,7 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { createHold, initializePayment } from "@/modules/tradefair/api/tradefair.api";
 import { useTradefairEvent } from "@/modules/tradefair/hooks/useTradefairEvent";
+import { useTradefairLayout } from "@/modules/tradefair/hooks/useTradefairLayout";
 import { MapPin, Users, Tent, ShieldCheck, ArrowRight, Ticket, Phone, Store, Camera, Music2, Star, Lock, CheckCircle2 } from "lucide-react";
 
 const BRAND = {
@@ -375,12 +377,91 @@ function MiniField({ data, onSelect, getUnitStatus, getSlotStatus, eventDisplay 
   );
 }
 
+function extractTrailingNumber(value) {
+  const match = String(value ?? "").match(/(\d+)\s*$/);
+  return match ? Number(match[1]) : null;
+}
+
+function resolveBackendSelection(layout, unit, slot) {
+  if (!layout || !unit) return null;
+
+  if (unit.type === "premium") {
+    const premiumIndex = Number(String(unit.id).replace("P", ""));
+    const stand =
+      layout.premium.find((item) => extractTrailingNumber(item.label) === premiumIndex) ??
+      null;
+    return stand ? { standId: stand.id, slotId: undefined } : null;
+  }
+
+  if (unit.type === "single") {
+    const singleMatch = String(unit.id).match(/^S(\d+)-(\d+)$/);
+    if (!singleMatch) return null;
+    const column = Number(singleMatch[1]);
+    const row = Number(singleMatch[2]);
+    const standIndex = (column - 1) * 12 + row;
+    const stand =
+      layout.single.find((item) => extractTrailingNumber(item.label) === standIndex) ??
+      null;
+    return stand ? { standId: stand.id, slotId: undefined } : null;
+  }
+
+  if (unit.type === "shared") {
+    const sharedMatch = String(unit.id).match(/^H(\d+)-(\d+)$/);
+    if (!sharedMatch) return null;
+    const column = Number(sharedMatch[1]);
+    const row = Number(sharedMatch[2]);
+    const canopyIndex = (column - 1) * 8 + row;
+    const stand =
+      layout.shared.find((item) => extractTrailingNumber(item.label) === canopyIndex) ??
+      null;
+    if (!stand) return null;
+
+    let slotId;
+    if (slot) {
+      const slotIndex = Number(String(slot.label).replace(/\D/g, ""));
+      if (!Number.isFinite(slotIndex) || slotIndex < 1) return null;
+      slotId = stand.slots?.[slotIndex - 1]?.id;
+      if (!slotId) return null;
+    }
+
+    return { standId: stand.id, slotId };
+  }
+
+  return null;
+}
+
+const CATEGORY_CODE_MAP = {
+  "fashion & clothing": "fashion",
+  accessories: "fashion",
+  "shoes & bags": "fashion",
+  jewellery: "fashion",
+  "food & drinks": "food",
+  "beauty & cosmetics": "beauty",
+  "health & wellness": "beauty",
+  "tech & gadgets": "electronics",
+  services: "services",
+  other: "services",
+  "books & stationery": "services",
+  "home & lifestyle": "services",
+};
+
+function mapToBackendCategoryCodes(categories) {
+  const mapped = categories
+    .map((category) => CATEGORY_CODE_MAP[String(category).toLowerCase().trim()])
+    .filter(Boolean);
+  return Array.from(new Set(mapped));
+}
+
 export default function TradefairRegisterPage() {
   const { event: eventSummary } = useTradefairEvent();
+  const { layout: backendLayout } = useTradefairLayout();
   const [data, setData] = useState(defaultData());
   const [selected, setSelected] = useState(null);
   const [open, setOpen] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
+  const [holdSubmitting, setHoldSubmitting] = useState(false);
+  const [paymentInitializing, setPaymentInitializing] = useState(false);
+  const [flowError, setFlowError] = useState(null);
   const [filters, setFilters] = useState("all");
   const [form, setForm] = useState({
     firstName: "",
@@ -485,6 +566,7 @@ export default function TradefairRegisterPage() {
   const selectUnit = (unit, slot = null) => {
     if (unit.type === "shared" && slot && getSlotStatus(unit.id, slot.id) !== "available") return;
     if (unit.type !== "shared" && getUnitStatus(unit) !== "available") return;
+    setFlowError(null);
 
     setSelected({
       unit,
@@ -503,83 +585,92 @@ export default function TradefairRegisterPage() {
     }));
   };
 
-  const holdReservation = () => {
+  const holdReservation = async () => {
     if (!selected) return;
+    setFlowError(null);
+
     const required = [form.firstName, form.lastName, form.phone, form.brandName];
-    if (required.some((v) => !String(v).trim()) || !form.agree) return;
-
-    const reservationId = crypto.randomUUID();
-    const holdUntil = new Date(Date.now() + HOLD_MINUTES * 60 * 1000).toISOString();
-
-    const reservation = {
-      id: reservationId,
-      type: selected.unit.type,
-      unitId: selected.unit.id,
-      slotId: selected.slot?.id || null,
-      amount: selected.amount,
-      status: "held",
-      holdUntil,
-      customer: form,
-      createdAt: new Date().toISOString(),
-    };
-
-    const next = JSON.parse(JSON.stringify(data));
-    next.reservations.push(reservation);
-
-    if (selected.unit.type === "shared") {
-      next.shared = next.shared.map((u) =>
-        u.id === selected.unit.id
-          ? {
-              ...u,
-              occupied: u.occupied + 1,
-              slots: u.slots.map((s) => (s.id === selected.slot.id ? { ...s, occupied: true } : s)),
-            }
-          : u
-      );
-    } else if (selected.unit.type === "single") {
-      next.single = next.single.map((u) => (u.id === selected.unit.id ? { ...u, occupied: 1 } : u));
-    } else {
-      next.premium = next.premium.map((u) => (u.id === selected.unit.id ? { ...u, occupied: 1 } : u));
+    if (required.some((v) => !String(v).trim()) || !form.agree) {
+      setFlowError("Please complete required fields and accept terms.");
+      return;
+    }
+    if (!form.categories.length) {
+      setFlowError("Select at least one business category.");
+      return;
+    }
+    const backendCategoryCodes = mapToBackendCategoryCodes(form.categories);
+    if (!backendCategoryCodes.length) {
+      setFlowError("Selected categories are not supported for registration.");
+      return;
     }
 
-    setData(next);
-    writeData(next);
-    setConfirmation(reservation);
+    const backendSelection = resolveBackendSelection(
+      backendLayout,
+      selected.unit,
+      selected.slot,
+    );
+    if (!backendSelection?.standId) {
+      setFlowError("Unable to map your stand selection. Refresh and try again.");
+      return;
+    }
+
+    setHoldSubmitting(true);
+    try {
+      const hold = await createHold({
+        standId: backendSelection.standId,
+        standType: selected.unit.type,
+        slotId: backendSelection.slotId,
+        amount: selected.amount,
+        vendor: {
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim() || "",
+          brandName: form.brandName.trim(),
+          categories: backendCategoryCodes,
+          preferences: form.preferences.trim(),
+          agree: Boolean(form.agree),
+        },
+      });
+
+      setConfirmation({
+        id: hold.reservationId,
+        bookingReference: hold.bookingReference,
+        amount: hold.amountKobo / 100,
+        holdUntil: hold.holdUntil,
+        customer: form,
+      });
+    } catch (requestError) {
+      const message =
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to create hold right now.";
+      setFlowError(message);
+    } finally {
+      setHoldSubmitting(false);
+    }
   };
 
-  const simulatePayment = () => {
+  const startPaystackPayment = async () => {
     if (!confirmation) return;
+    setFlowError(null);
+    setPaymentInitializing(true);
 
-    const next = JSON.parse(JSON.stringify(data));
-    next.reservations = next.reservations.map((r) =>
-      r.id === confirmation.id ? { ...r, status: "paid", paidAt: new Date().toISOString() } : r
-    );
+    try {
+      const initialized = await initializePayment(confirmation.id);
+      if (!initialized.authorizationUrl) {
+        throw new Error("Paystack did not return a checkout URL.");
+      }
 
-    next.payments.push({
-      id: crypto.randomUUID(),
-      reservationId: confirmation.id,
-      amount: confirmation.amount,
-      status: "success",
-      gateway: "Paystack",
-      gatewayReference: `VIC-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    });
-
-    setData(next);
-    writeData(next);
-    setOpen(false);
-    setSelected(null);
-    setForm({
-      firstName: "",
-      lastName: "",
-      phone: "",
-      email: "",
-      brandName: "",
-      categories: [],
-      preferences: "",
-      agree: false,
-    });
-    setConfirmation(null);
+      window.location.assign(initialized.authorizationUrl);
+    } catch (requestError) {
+      const message =
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to initialize payment.";
+      setFlowError(message);
+      setPaymentInitializing(false);
+    }
   };
 
   return (
@@ -868,7 +959,13 @@ export default function TradefairRegisterPage() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <Button variant="outline" className="rounded-2xl" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button className="rounded-2xl bg-amber-500 text-black hover:bg-amber-400" onClick={holdReservation}>Hold stand and continue</Button>
+                <Button
+                  className="rounded-2xl bg-amber-500 text-black hover:bg-amber-400"
+                  onClick={() => void holdReservation()}
+                  disabled={holdSubmitting}
+                >
+                  {holdSubmitting ? "Holding stand..." : "Hold stand and continue"}
+                </Button>
               </div>
             </div>
           ) : (
@@ -878,6 +975,7 @@ export default function TradefairRegisterPage() {
                 <p className="mt-2 text-sm leading-7 text-slate-700">Your selected stand is held for {HOLD_MINUTES} minutes pending payment confirmation.</p>
                 <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
                   <p><span className="font-semibold">Reservation ID:</span> {confirmation.id.slice(0, 8).toUpperCase()}</p>
+                  <p><span className="font-semibold">Booking Ref:</span> {confirmation.bookingReference}</p>
                   <p><span className="font-semibold">Amount:</span> {formatNaira(confirmation.amount)}</p>
                   <p><span className="font-semibold">Held until:</span> {new Date(confirmation.holdUntil).toLocaleTimeString()}</p>
                   <p><span className="font-semibold">Brand:</span> {confirmation.customer.brandName}</p>
@@ -885,15 +983,26 @@ export default function TradefairRegisterPage() {
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-                This prototype uses a simulated payment button below. In production, replace this action with Paystack payment initialisation, then verify the transaction server-side before confirming the stand.
+                Payment is initialized from the backend, then you will be redirected to Paystack test checkout. Your stand is only confirmed after backend verification succeeds.
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <Button variant="outline" className="rounded-2xl" onClick={() => setConfirmation(null)}>Back</Button>
-                <Button className="rounded-2xl bg-amber-500 text-black hover:bg-amber-400" onClick={simulatePayment}>Simulate successful payment</Button>
+                <Button
+                  className="rounded-2xl bg-amber-500 text-black hover:bg-amber-400"
+                  onClick={() => void startPaystackPayment()}
+                  disabled={paymentInitializing}
+                >
+                  {paymentInitializing ? "Redirecting..." : "Pay with Paystack (Test)"}
+                </Button>
               </div>
             </div>
           )}
+          {flowError ? (
+            <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {flowError}
+            </p>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

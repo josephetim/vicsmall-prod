@@ -2,7 +2,7 @@ import axios from "axios";
 import mongoose from "mongoose";
 import type { IncomingHttpHeaders } from "http";
 
-import { conflict, notFound, unauthorized } from "@/backend/utils/http-error";
+import { badRequest, conflict, notFound, unauthorized } from "@/backend/utils/http-error";
 import { getEnv } from "@/backend/config/env";
 import type { InitializePaymentResponseDto, VerifyPaymentResponseDto } from "@/modules/tradefair/dto/initialize-payment.dto";
 import { auditLogRepository } from "@/modules/tradefair/repositories/audit-log.repository";
@@ -17,6 +17,20 @@ const paystackClient = axios.create({
   baseURL: "https://api.paystack.co",
 });
 
+const PAYABLE_STATUSES = new Set(["held", "pending_payment"]);
+
+function buildFallbackEmail(vendorId: string) {
+  return `no-reply+${vendorId}@vicsmall.com`;
+}
+
+function resolveCustomerEmail(email: string | undefined, vendorId: string) {
+  const trimmed = email?.trim();
+  if (trimmed && trimmed.includes("@")) {
+    return trimmed.toLowerCase();
+  }
+  return buildFallbackEmail(vendorId);
+}
+
 function getPaystackHeaders() {
   const env = getEnv();
   return {
@@ -29,8 +43,17 @@ export const tradefairPaymentService = {
   async initializePayment(registrationId: string): Promise<InitializePaymentResponseDto> {
     const registration = await registrationRepository.findById(registrationId);
     if (!registration) throw notFound("Registration not found.");
-    if (registration.registrationStatus !== "held") {
+    if (registration.registrationStatus === "paid") {
+      throw conflict("Registration has already been paid.");
+    }
+    if (!PAYABLE_STATUSES.has(registration.registrationStatus)) {
       throw conflict("Registration is not in payable state.");
+    }
+    if (
+      registration.holdExpiresAt &&
+      registration.holdExpiresAt.getTime() < Date.now()
+    ) {
+      throw conflict("Registration hold has expired. Please create a new hold.");
     }
 
     const [vendor, event] = await Promise.all([
@@ -43,11 +66,19 @@ export const tradefairPaymentService = {
 
     const reference = `VIC-${Date.now()}-${String(registration._id).slice(-6).toUpperCase()}`;
     const callbackUrl = getEnv().TRADEFAIR_CALLBACK_URL;
+    const customerEmail = resolveCustomerEmail(vendor.email, String(vendor._id));
+
+    console.info("[payments] initialize:start", {
+      registrationId: String(registration._id),
+      bookingReference: registration.bookingReference,
+      amountKobo: registration.amountKobo,
+      callbackUrl,
+    });
 
     const response = await paystackClient.post(
       "/transaction/initialize",
       {
-        email: vendor.email || `noemail+${String(vendor._id)}@vicsmall.local`,
+        email: customerEmail,
         amount: registration.amountKobo,
         reference,
         callback_url: callbackUrl,
@@ -60,7 +91,22 @@ export const tradefairPaymentService = {
       },
       { headers: getPaystackHeaders() },
     );
+    if (response.data?.status === false) {
+      throw conflict("Unable to initialize Paystack transaction.");
+    }
     const gatewayReference = response.data?.data?.reference ?? reference;
+    const authorizationUrl = response.data?.data?.authorization_url as string | undefined;
+    const accessCode = response.data?.data?.access_code as string | undefined;
+    if (!authorizationUrl) {
+      throw conflict("Paystack did not return an authorization URL.");
+    }
+
+    console.info("[payments] initialize:response", {
+      registrationId: String(registration._id),
+      gatewayReference,
+      hasAuthorizationUrl: Boolean(authorizationUrl),
+      hasAccessCode: Boolean(accessCode),
+    });
 
     const session = await mongoose.startSession();
     try {
@@ -72,7 +118,7 @@ export const tradefairPaymentService = {
             vendorId: vendor._id,
             gateway: "paystack",
             gatewayReference,
-            gatewayAccessCode: response.data?.data?.access_code,
+            gatewayAccessCode: accessCode,
             amountKobo: registration.amountKobo,
             currency: registration.currency,
             paymentStatus: "initialized",
@@ -93,15 +139,29 @@ export const tradefairPaymentService = {
       session.endSession();
     }
 
-    return response.data?.data as InitializePaymentResponseDto;
+    return {
+      authorization_url: authorizationUrl,
+      access_code: accessCode,
+      reference: gatewayReference,
+    };
   },
 
   async verifyPayment(reference: string): Promise<VerifyPaymentResponseDto> {
+    if (!reference?.trim()) {
+      throw badRequest("Payment reference is required.");
+    }
+
+    console.info("[payments] verify:start", { reference });
+
     const payment = await paymentRepository.findByReference(reference);
     if (!payment) throw notFound("Payment reference not found.");
 
     if (payment.paymentStatus === "success") {
       const registration = await registrationRepository.findById(payment.registrationId);
+      console.info("[payments] verify:already-success", {
+        reference,
+        bookingReference: registration?.bookingReference,
+      });
       return {
         ok: true,
         status: "success",
@@ -113,6 +173,9 @@ export const tradefairPaymentService = {
     const response = await paystackClient.get(`/transaction/verify/${reference}`, {
       headers: getPaystackHeaders(),
     });
+    if (response.data?.status === false) {
+      throw conflict("Paystack verification failed.");
+    }
     const verified = response.data?.data;
     if (!verified) {
       throw conflict("Unable to verify payment response.");
@@ -123,9 +186,24 @@ export const tradefairPaymentService = {
         verified.status === "abandoned" || verified.status === "failed"
           ? verified.status
           : "pending";
-      await paymentRepository.updateById(payment._id, {
+
+      await paymentRepository.updateById(
+        payment._id,
+        {
+          paymentStatus: normalizedStatus,
+          rawVerifyResponse: response.data,
+        },
+      );
+
+      if (normalizedStatus === "failed" || normalizedStatus === "abandoned") {
+        await registrationRepository.updateById(payment.registrationId, {
+          registrationStatus: "failed",
+        });
+      }
+
+      console.info("[payments] verify:non-success", {
+        reference,
         paymentStatus: normalizedStatus,
-        rawVerifyResponse: response.data,
       });
       return { ok: false, status: normalizedStatus };
     }
@@ -143,6 +221,10 @@ export const tradefairPaymentService = {
           const registration = await registrationRepository.findById(
             paymentForUpdate.registrationId,
           );
+          console.info("[payments] verify:already-success-in-tx", {
+            reference,
+            bookingReference: registration?.bookingReference,
+          });
           return {
             ok: true,
             status: "success",
@@ -209,6 +291,12 @@ export const tradefairPaymentService = {
           session,
         );
 
+        console.info("[payments] verify:success", {
+          reference,
+          registrationId: String(registration._id),
+          bookingReference: registration.bookingReference,
+        });
+
         return {
           ok: true,
           status: "success",
@@ -223,13 +311,35 @@ export const tradefairPaymentService = {
 
   async handleCallback(reference: string) {
     const env = getEnv();
-    const result = await this.verifyPayment(reference);
     const redirectUrl = new URL(env.TRADEFAIR_CONFIRMATION_URL);
-    redirectUrl.searchParams.set("reference", reference);
-    if (result.bookingReference) {
-      redirectUrl.searchParams.set("bookingReference", result.bookingReference);
+
+    if (!reference?.trim()) {
+      console.warn("[payments] callback:missing-reference");
+      redirectUrl.searchParams.set("status", "failed");
+      return redirectUrl.toString();
     }
-    redirectUrl.searchParams.set("status", result.status);
+
+    console.info("[payments] callback:received", { reference });
+
+    try {
+      const result = await this.verifyPayment(reference);
+      redirectUrl.searchParams.set("reference", reference);
+      if (result.bookingReference) {
+        redirectUrl.searchParams.set("bookingReference", result.bookingReference);
+      }
+      redirectUrl.searchParams.set("status", result.status);
+
+      console.info("[payments] callback:redirect", {
+        reference,
+        status: result.status,
+        hasBookingReference: Boolean(result.bookingReference),
+      });
+    } catch (error) {
+      console.error("[payments] callback:verify-error", { reference, error });
+      redirectUrl.searchParams.set("reference", reference);
+      redirectUrl.searchParams.set("status", "failed");
+    }
+
     return redirectUrl.toString();
   },
 
@@ -251,6 +361,9 @@ export const tradefairPaymentService = {
 
     const event = body as { event?: string; data?: { reference?: string } };
     if (event.event === "charge.success" && event.data?.reference) {
+      console.info("[payments] webhook:charge-success", {
+        reference: event.data.reference,
+      });
       await this.verifyPayment(event.data.reference);
     }
   },
