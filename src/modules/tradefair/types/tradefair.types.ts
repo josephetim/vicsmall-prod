@@ -29,6 +29,9 @@ export interface EventSummary {
 export interface SharedStandSlot {
   id: string;
   label: string;
+  slotCode?: string;
+  slotIndex?: number;
+  status?: "available" | "held" | "paid" | "blocked";
   occupied: boolean;
   vendorName: string;
 }
@@ -36,6 +39,7 @@ export interface SharedStandSlot {
 export interface Stand {
   id: string;
   label: string;
+  standCode?: string;
   type: StandType;
   price: number;
   capacity: number;

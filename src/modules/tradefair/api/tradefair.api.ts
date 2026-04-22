@@ -99,6 +99,7 @@ export async function getTradefairLayout(): Promise<TradefairLayout> {
   const data = await requestBackend<{
     premium: Array<{
       id: string;
+      standCode: string;
       label: string;
       standType: "premium";
       fullPriceKobo: number;
@@ -108,6 +109,7 @@ export async function getTradefairLayout(): Promise<TradefairLayout> {
     }>;
     single: Array<{
       id: string;
+      standCode: string;
       label: string;
       standType: "single";
       fullPriceKobo: number;
@@ -117,6 +119,7 @@ export async function getTradefairLayout(): Promise<TradefairLayout> {
     }>;
     shared: Array<{
       id: string;
+      standCode: string;
       label: string;
       standType: "shared";
       fullPriceKobo: number;
@@ -127,7 +130,9 @@ export async function getTradefairLayout(): Promise<TradefairLayout> {
     slots: Array<{
       id: string;
       standId: string;
+      slotCode: string;
       slotLabel: string;
+      slotIndex: number;
       status: "available" | "held" | "paid" | "blocked";
     }>;
   }>(`/api/tradefair/events/${EVENT_SLUG}/layout`);
@@ -135,6 +140,7 @@ export async function getTradefairLayout(): Promise<TradefairLayout> {
   const mapStand = (
     stand: {
       id: string;
+      standCode: string;
       label: string;
       standType: "premium" | "single" | "shared";
       fullPriceKobo: number;
@@ -145,6 +151,7 @@ export async function getTradefairLayout(): Promise<TradefairLayout> {
     occupied: number,
   ) => ({
     id: stand.id,
+    standCode: stand.standCode,
     label: stand.label,
     type: stand.standType,
     price: Math.round(stand.fullPriceKobo / 100),
@@ -159,7 +166,10 @@ export async function getTradefairLayout(): Promise<TradefairLayout> {
       .filter((slot) => slot.standId === stand.id)
       .map((slot) => ({
         id: slot.id,
+        slotCode: slot.slotCode,
         label: slot.slotLabel,
+        slotIndex: slot.slotIndex,
+        status: slot.status,
         occupied: slot.status !== "available",
         vendorName: slot.status === "available" ? "" : "Reserved",
       }));

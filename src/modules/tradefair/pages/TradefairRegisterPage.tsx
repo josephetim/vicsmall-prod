@@ -377,57 +377,143 @@ function MiniField({ data, onSelect, getUnitStatus, getSlotStatus, eventDisplay 
   );
 }
 
-function extractTrailingNumber(value) {
-  const match = String(value ?? "").match(/(\d+)\s*$/);
-  return match ? Number(match[1]) : null;
+function normalizeToken(value) {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+}
+
+function parseGridFromCode(value, prefixes) {
+  const normalized = normalizeToken(value);
+  for (const prefix of prefixes) {
+    const match = normalized.match(new RegExp(`^${prefix}(\\d+)-(\\d+)$`));
+    if (!match) continue;
+    return {
+      column: Number(match[1]),
+      row: Number(match[2]),
+    };
+  }
+  return null;
+}
+
+function parseGridFromLabel(value, type) {
+  const text = String(value ?? "");
+  const singleMatch = text.match(/single\s+(\d+)-(\d+)/i);
+  if (type === "single" && singleMatch) {
+    return {
+      column: Number(singleMatch[1]),
+      row: Number(singleMatch[2]),
+    };
+  }
+
+  const sharedMatch = text.match(/(?:shared|canopy)\s+(\d+)-(\d+)/i);
+  if (type === "shared" && sharedMatch) {
+    return {
+      column: Number(sharedMatch[1]),
+      row: Number(sharedMatch[2]),
+    };
+  }
+
+  return null;
+}
+
+function sameGrid(a, b) {
+  return a && b && a.column === b.column && a.row === b.row;
+}
+
+function getSlotIndex(slot) {
+  const idMatch = String(slot?.id ?? "").match(/(?:-|^)V(\d+)$/i);
+  if (idMatch) return Number(idMatch[1]);
+
+  const labelMatch = String(slot?.label ?? "").match(/(\d+)/);
+  if (labelMatch) return Number(labelMatch[1]);
+
+  return null;
 }
 
 function resolveBackendSelection(layout, unit, slot) {
   if (!layout || !unit) return null;
 
-  if (unit.type === "premium") {
-    const premiumIndex = Number(String(unit.id).replace("P", ""));
-    const stand =
-      layout.premium.find((item) => extractTrailingNumber(item.label) === premiumIndex) ??
-      null;
-    return stand ? { standId: stand.id, slotId: undefined } : null;
+  const standPool =
+    unit.type === "premium"
+      ? layout.premium
+      : unit.type === "single"
+        ? layout.single
+        : layout.shared;
+
+  const targetCode = normalizeToken(unit.id);
+  let stand =
+    standPool.find((item) => normalizeToken(item.standCode) === targetCode) ?? null;
+
+  if (!stand) {
+    stand =
+      standPool.find(
+        (item) => normalizeToken(item.label) === normalizeToken(unit.label),
+      ) ?? null;
   }
 
-  if (unit.type === "single") {
-    const singleMatch = String(unit.id).match(/^S(\d+)-(\d+)$/);
-    if (!singleMatch) return null;
-    const column = Number(singleMatch[1]);
-    const row = Number(singleMatch[2]);
-    const standIndex = (column - 1) * 12 + row;
-    const stand =
-      layout.single.find((item) => extractTrailingNumber(item.label) === standIndex) ??
-      null;
-    return stand ? { standId: stand.id, slotId: undefined } : null;
-  }
-
-  if (unit.type === "shared") {
-    const sharedMatch = String(unit.id).match(/^H(\d+)-(\d+)$/);
-    if (!sharedMatch) return null;
-    const column = Number(sharedMatch[1]);
-    const row = Number(sharedMatch[2]);
-    const canopyIndex = (column - 1) * 8 + row;
-    const stand =
-      layout.shared.find((item) => extractTrailingNumber(item.label) === canopyIndex) ??
-      null;
-    if (!stand) return null;
-
-    let slotId;
-    if (slot) {
-      const slotIndex = Number(String(slot.label).replace(/\D/g, ""));
-      if (!Number.isFinite(slotIndex) || slotIndex < 1) return null;
-      slotId = stand.slots?.[slotIndex - 1]?.id;
-      if (!slotId) return null;
+  if (!stand && unit.type === "premium") {
+    const premiumMatch = targetCode.match(/^P(\d+)$/);
+    const premiumIndex = premiumMatch ? Number(premiumMatch[1]) : null;
+    if (Number.isFinite(premiumIndex)) {
+      stand =
+        standPool.find((item) => {
+          const codeMatch = normalizeToken(item.standCode).match(/^P(\d+)$/);
+          if (codeMatch && Number(codeMatch[1]) === premiumIndex) return true;
+          const labelMatch = String(item.label ?? "").match(/premium\s+(\d+)/i);
+          if (labelMatch && Number(labelMatch[1]) === premiumIndex) return true;
+          return Number(item.column) === premiumIndex;
+        }) ?? null;
     }
-
-    return { standId: stand.id, slotId };
   }
 
-  return null;
+  if (!stand && (unit.type === "single" || unit.type === "shared")) {
+    const prefixes = unit.type === "single" ? ["S"] : ["H", "C"];
+    const targetGrid =
+      parseGridFromCode(unit.id, prefixes) ?? parseGridFromLabel(unit.label, unit.type);
+
+    if (targetGrid) {
+      stand =
+        standPool.find((item) => {
+          const fromCode = parseGridFromCode(item.standCode, prefixes);
+          const fromLabel = parseGridFromLabel(item.label, unit.type);
+          const fromPosition = {
+            column: Number(item.column),
+            row: Number(item.row),
+          };
+
+          return (
+            sameGrid(fromCode, targetGrid) ||
+            sameGrid(fromLabel, targetGrid) ||
+            sameGrid(fromPosition, targetGrid)
+          );
+        }) ?? null;
+    }
+  }
+
+  if (!stand) return null;
+  if (unit.type !== "shared") return { standId: stand.id, slotId: undefined };
+
+  if (!slot) return { standId: stand.id, slotId: undefined };
+
+  const targetSlotCode = normalizeToken(slot.id);
+  const slotIndex = getSlotIndex(slot);
+
+  const resolvedSlot =
+    stand.slots?.find(
+      (item) => normalizeToken(item.slotCode) === targetSlotCode,
+    ) ??
+    (Number.isFinite(slotIndex)
+      ? stand.slots?.find((item) => Number(item.slotIndex) === slotIndex)
+      : null) ??
+    stand.slots?.find(
+      (item) => normalizeToken(item.label) === normalizeToken(slot.label),
+    ) ??
+    null;
+
+  if (!resolvedSlot?.id) return null;
+  return { standId: stand.id, slotId: resolvedSlot.id };
 }
 
 const CATEGORY_CODE_MAP = {
@@ -610,6 +696,17 @@ export default function TradefairRegisterPage() {
       selected.slot,
     );
     if (!backendSelection?.standId) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[tradefair] stand selection mapping failed", {
+          unitId: selected.unit?.id,
+          unitLabel: selected.unit?.label,
+          slotId: selected.slot?.id,
+          slotLabel: selected.slot?.label,
+          premiumCodes: backendLayout?.premium?.slice(0, 6).map((item) => item.standCode ?? item.label),
+          singleCodes: backendLayout?.single?.slice(0, 8).map((item) => item.standCode ?? item.label),
+          sharedCodes: backendLayout?.shared?.slice(0, 8).map((item) => item.standCode ?? item.label),
+        });
+      }
       setFlowError("Unable to map your stand selection. Refresh and try again.");
       return;
     }
